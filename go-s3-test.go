@@ -34,19 +34,6 @@ func main() {
 		Region: aws.String("eu-west-1"),
 	}))
 
-	// Create a context with a timeout that will abort the upload if it takes
-	// more than the passed in timeout.
-	ctx := context.Background()
-	var cancelFn func()
-	if timeout > 0 {
-		ctx, cancelFn = context.WithTimeout(ctx, timeout)
-	}
-	// Ensure the context is canceled to prevent leaking.
-	// See context package for more information, https://golang.org/pkg/context/
-	if cancelFn != nil {
-		defer cancelFn()
-	}
-
 	// Uploads the object to S3. The Context will interrupt the request if the
 	// timeout expires.
 
@@ -54,9 +41,9 @@ func main() {
 		u.PartSize = 5 * 1024 * 1024
 	})
 	var _, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(bucket), // Bucket to be used
-		Key:    aws.String(key),    // Name of the file to be saved
-		Body:   file,               // File
+		Bucket: aws.String(bucket),       // Bucket to be used
+		Key:    aws.String(key),          // Name of the file to be saved
+		Body:   NewDiskLimitReader(file), // File
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
@@ -74,7 +61,7 @@ func main() {
 
 // NewDiskLimitReader returns a reader that is rate limited by disk limiter
 func NewDiskLimitReader(r io.Reader) io.Reader {
-	var diskLimiter = rate.NewLimiter(rate.Limit(2000000000), 2000000000+8*8192)
+	var diskLimiter = rate.NewLimiter(rate.Limit(200000000), 200000000+8*8192)
 
 	return NewReader(r, diskLimiter)
 }
