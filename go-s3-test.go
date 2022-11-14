@@ -54,9 +54,9 @@ func main() {
 		u.PartSize = 1000 * 1024 * 1024
 	})
 	var _, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(bucket),       // Bucket to be used
-		Key:    aws.String(key),          // Name of the file to be saved
-		Body:   NewDiskLimitReader(file), // File
+		Bucket: aws.String(bucket), // Bucket to be used
+		Key:    aws.String(key),    // Name of the file to be saved
+		Body:   file,               // File
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
