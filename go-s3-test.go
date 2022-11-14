@@ -54,9 +54,9 @@ func main() {
 		u.PartSize = 1000 * 1024 * 1024
 	})
 	var _, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(bucket), // Bucket to be used
-		Key:    aws.String(key),    // Name of the file to be saved
-		Body:   file,               // File
+		Bucket: aws.String(bucket),       // Bucket to be used
+		Key:    aws.String(key),          // Name of the file to be saved
+		Body:   NewDiskLimitReader(file), // File
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
@@ -74,7 +74,7 @@ func main() {
 
 // NewDiskLimitReader returns a reader that is rate limited by disk limiter
 func NewDiskLimitReader(r io.Reader) io.Reader {
-	var diskLimiter = rate.NewLimiter(rate.Limit(200000000), 200000000+8*8192)
+	var diskLimiter = rate.NewLimiter(rate.Limit(2000000000), 2000000000+8*8192)
 
 	return NewReader(r, diskLimiter)
 }
