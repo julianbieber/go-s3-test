@@ -33,7 +33,9 @@ func main() {
 	// Optional aws.Config values can also be provided as variadic arguments
 	// to the New function. This option allows you to provide service
 	// specific configuration.
-	svc := s3.New(sess)
+	svc := s3.New(sess, &aws.Config{
+		Region: aws.String("eu-west-1"),
+	})
 
 	// Create a context with a timeout that will abort the upload if it takes
 	// more than the passed in timeout.
