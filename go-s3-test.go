@@ -17,7 +17,7 @@ import (
 
 func main() {
 	var bucket, key string
-	var timeout, _ = time.ParseDuration("10s")
+	var timeout, _ = time.ParseDuration("100000s")
 	var upload_path string
 	flag.StringVar(&bucket, "b", "", "Bucket name.")
 	flag.StringVar(&key, "k", "", "Object key name.")
