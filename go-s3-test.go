@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	// "io"
+	"io"
 	"os"
 	"time"
 
@@ -12,7 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	// "github.com/aws/aws-sdk-go/service/s3"
+	"golang.org/x/time/rate"
+
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 func main() {
@@ -27,15 +30,9 @@ func main() {
 	var file, _ = os.Open(upload_path)
 	defer file.Close()
 
-	sess := session.Must(session.NewSession())
-
-	// Create a new instance of the service's client with a Session.
-	// Optional aws.Config values can also be provided as variadic arguments
-	// to the New function. This option allows you to provide service
-	// specific configuration.
-	svc := s3.New(sess, &aws.Config{
+	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String("eu-west-1"),
-	})
+	}))
 
 	// Create a context with a timeout that will abort the upload if it takes
 	// more than the passed in timeout.
@@ -52,10 +49,12 @@ func main() {
 
 	// Uploads the object to S3. The Context will interrupt the request if the
 	// timeout expires.
-	_, err := svc.PutObjectWithContext(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-		Body:   file,
+	uploader := s3manager.NewUploader(sess)
+
+	var _, err = uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(bucket),       // Bucket to be used
+		Key:    aws.String(key),          // Name of the file to be saved
+		Body:   NewDiskLimitReader(file), // File
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
@@ -69,4 +68,31 @@ func main() {
 	}
 
 	fmt.Printf("successfully uploaded file to %s/%s\n", bucket, key)
+}
+
+// NewDiskLimitReader returns a reader that is rate limited by disk limiter
+func NewDiskLimitReader(r io.Reader) io.Reader {
+	var diskLimiter = rate.NewLimiter(rate.Limit(200000000), 200000000+8*8192)
+
+	return NewReader(r, diskLimiter)
+}
+
+type Reader struct {
+	reader  io.Reader
+	limiter *rate.Limiter
+}
+
+func NewReader(reader io.Reader, limiter *rate.Limiter) *Reader {
+	return &Reader{reader, limiter}
+}
+
+func (r *Reader) Read(buf []byte) (int, error) {
+	end := len(buf)
+	if r.limiter.Burst() < end {
+		end = r.limiter.Burst()
+	}
+	n, err := r.reader.Read(buf[:end])
+
+	err = r.limiter.WaitN(context.TODO(), n)
+	return n, err
 }
