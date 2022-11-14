@@ -49,8 +49,10 @@ func main() {
 
 	// Uploads the object to S3. The Context will interrupt the request if the
 	// timeout expires.
-	uploader := s3manager.NewUploader(sess)
 
+	uploader := s3manager.NewUploader(sess, func(u *s3manager.Uploader) {
+		u.PartSize = 1000 * 1024 * 1024
+	})
 	var _, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),       // Bucket to be used
 		Key:    aws.String(key),          // Name of the file to be saved
